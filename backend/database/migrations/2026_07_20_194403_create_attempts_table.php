@@ -17,8 +17,11 @@ return new class extends Migration
             $table->foreign('game_id')->references('id')->on('games')->onDelete('cascade');
             $table->string('attempted_word', 20);
             $table->integer('attempt_number');
+            $table->json('result');
             $table->boolean('is_correct')->default(false);
             $table->timestamps();
+
+            $table->unique(['game_id', 'attempt_number']);
         });
     }
 

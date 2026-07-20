@@ -13,10 +13,12 @@ return new class extends Migration
     {
         Schema::create('words', function (Blueprint $table) {
             $table->id();
-            $table->string('word',20);
+            $table->string('word',20)->unique();
             $table->integer('length');
             $table->enum('difficulty', ['easy', 'medium', 'hard']);
             $table->timestamps();
+
+            $table->index(['difficulty', 'length']);
         });
     }
 
