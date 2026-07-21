@@ -52,7 +52,7 @@ export default function Home() {
 
   if (loading) {
     return (
-      <main className="flex flex-1 items-center justify-center p-8">
+      <main className="flex flex-1 items-center justify-center p-4 sm:p-8">
         <p className="text-zinc-600">Chargement...</p>
       </main>
     );
@@ -63,7 +63,7 @@ export default function Home() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center p-8">
+    <main className="flex flex-1 items-center justify-center p-4 sm:p-8">
       <form onSubmit={onSubmit} className="flex flex-col gap-4 max-w-md w-full">
         <h1 className="text-2xl font-semibold">
           {mode === "login" ? "Connexion" : "Inscription"}

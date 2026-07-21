@@ -19,7 +19,7 @@ export default function LeaderboardPage() {
 
   if (authLoading || !user) {
     return (
-      <main className="flex flex-1 items-center justify-center p-8">
+      <main className="flex flex-1 items-center justify-center p-4 sm:p-8">
         <p className="text-zinc-600">Chargement...</p>
       </main>
     );
@@ -34,62 +34,58 @@ export default function LeaderboardPage() {
       {data && (
         <>
           <div className="rounded-lg border border-zinc-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-zinc-100 text-left">
-                <tr>
-                  <th className="px-3 py-2 w-12">#</th>
-                  <th className="px-3 py-2">Joueur</th>
-                  <th className="px-3 py-2 text-right">Score</th>
-                  <th className="px-3 py-2 text-right hidden sm:table-cell">
-                    Parties
-                  </th>
-                  <th className="px-3 py-2 text-right hidden sm:table-cell">
-                    Victoires
-                  </th>
-                  <th className="px-3 py-2 text-right hidden sm:table-cell">
-                    Meilleur
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.top.length === 0 && (
+            {data.top.length === 0 ? (
+              <p className="px-3 py-6 text-center text-zinc-500">
+                Aucun classement pour l&apos;instant.
+              </p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-100 text-left">
                   <tr>
-                    <td
-                      colSpan={6}
-                      className="px-3 py-6 text-center text-zinc-500"
+                    <th className="px-3 py-2 w-12">#</th>
+                    <th className="px-3 py-2">Joueur</th>
+                    <th className="px-3 py-2 text-right">Score</th>
+                    <th className="px-3 py-2 text-right hidden sm:table-cell">
+                      Parties
+                    </th>
+                    <th className="px-3 py-2 text-right hidden sm:table-cell">
+                      Victoires
+                    </th>
+                    <th className="px-3 py-2 text-right hidden sm:table-cell">
+                      Meilleur
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.top.map((row) => (
+                    <tr
+                      key={row.user?.id ?? `rank-${row.rank}`}
+                      className="border-t border-zinc-200"
                     >
-                      Aucun classement pour l&apos;instant.
-                    </td>
-                  </tr>
-                )}
-                {data.top.map((row) => (
-                  <tr
-                    key={row.user?.id ?? `rank-${row.rank}`}
-                    className="border-t border-zinc-200"
-                  >
-                    <td className="px-3 py-2 font-mono">{row.rank}</td>
-                    <td className="px-3 py-2">
-                      {row.user?.name ?? "—"}
-                      {row.user?.id === user.id && (
-                        <span className="ml-2 text-xs text-zinc-500">(vous)</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold">
-                      {row.total_score}
-                    </td>
-                    <td className="px-3 py-2 text-right hidden sm:table-cell">
-                      {row.games_played}
-                    </td>
-                    <td className="px-3 py-2 text-right hidden sm:table-cell">
-                      {row.games_won}
-                    </td>
-                    <td className="px-3 py-2 text-right hidden sm:table-cell">
-                      {row.best_score}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                      <td className="px-3 py-2 font-mono">{row.rank}</td>
+                      <td className="px-3 py-2">
+                        {row.user?.name ?? "—"}
+                        {row.user?.id === user.id && (
+                          <span className="ml-2 text-xs text-zinc-500">(vous)</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold">
+                        {row.total_score}
+                      </td>
+                      <td className="px-3 py-2 text-right hidden sm:table-cell">
+                        {row.games_played}
+                      </td>
+                      <td className="px-3 py-2 text-right hidden sm:table-cell">
+                        {row.games_won}
+                      </td>
+                      <td className="px-3 py-2 text-right hidden sm:table-cell">
+                        {row.best_score}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {data.me && !data.in_top && (

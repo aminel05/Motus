@@ -11,15 +11,17 @@ const base =
   "inline-flex items-center justify-center font-bold uppercase select-none transition-transform";
 
 const sizes: Record<NonNullable<Props["size"]>, string> = {
-  sm: "w-10 h-10 text-base",
-  md: "w-12 h-12 text-xl",
-  lg: "w-14 h-14 sm:w-16 sm:h-16 text-2xl",
+  // aspect-square makes the cell fill its grid column equally in both
+  // dimensions, so the grid stays the right size on any screen.
+  sm: "aspect-square text-base",
+  md: "aspect-square text-lg",
+  lg: "aspect-square text-lg sm:text-2xl",
 };
 
 const statusStyles: Record<LetterStatus, string> = {
-  correct: "bg-white text-zinc-900 border-4 border-red-600 rounded-md",
-  present: "bg-white text-zinc-900 border-4 border-yellow-500 rounded-full",
-  absent: "bg-blue-600 text-white border-4 border-blue-700 rounded-md",
+  correct: "bg-white text-zinc-900 border-2 sm:border-4 border-red-600 rounded-md",
+  present: "bg-white text-zinc-900 border-2 sm:border-4 border-yellow-500 rounded-full",
+  absent: "bg-blue-600 text-white border-2 sm:border-4 border-blue-700 rounded-md",
 };
 
 const emptyStyle =

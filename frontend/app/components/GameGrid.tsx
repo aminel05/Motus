@@ -17,7 +17,7 @@ export function GameGrid({ length, maxAttempts, attempts, firstLetter }: Props) 
         : "grid-cols-10";
 
   return (
-    <div className="flex flex-col gap-1.5 sm:gap-2">
+    <div className="flex flex-col gap-1 sm:gap-1.5 w-full">
       {Array.from({ length: maxAttempts }).map((_, rowIdx) => {
         const attempt = attempts[rowIdx];
         const isCurrentRow = rowIdx === attempts.length;
@@ -30,7 +30,7 @@ export function GameGrid({ length, maxAttempts, attempts, firstLetter }: Props) 
             : Array.from({ length }).map(() => "");
 
         return (
-          <div key={rowIdx} className={`grid ${cols} gap-1.5 sm:gap-2`}>
+          <div key={rowIdx} className={`grid ${cols} gap-1 sm:gap-1.5`}>
             {letters.map((letter, colIdx) => {
               const status =
                 attempt && colIdx < attempt.result.length
