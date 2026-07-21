@@ -100,8 +100,12 @@ php artisan key:generate
 php artisan migrate --seed
 ```
 
-Le seeder remplit la table `words` avec une liste de mots français répartis
-par longueur (5 / 7 / 10 lettres) selon la difficulté.
+Le seeder remplit la table `words` avec ~200 mots français répartis
+par longueur (5 / 7 / 10 lettres) selon la difficulté. C'est un **filet de
+sécurité** : la source principale des mots est l'API
+[trouve-mot.fr](https://trouve-mot.fr), appelée par `WordProvider::pick()`
+avec un cache d'une heure. En cas d'API indisponible hors-ligne, le seeder
+fournit les mots de secours.
 
 ### 3. Frontend
 
@@ -217,5 +221,11 @@ Voir `documents/DESIGN.md` pour le détail sur :
 - le modèle de données (cascades, contraintes d'unicité, index)
 - l'algorithme de scoring en deux passes (gestion des doublons)
 - la requête d'agrégation du classement
-- la provenance des mots (seeder + API Taknok en secours)
 - la doc OpenAPI (attributs PHP 8 natifs via darkaonline/l5-swagger)
+- la source des mots : l'API REST publique [trouve-mot.fr](https://trouve-mot.fr)
+  (`/api/size/{length}/50`, ~3 575 mots français). Ordre de résolution dans
+  `WordProvider::pick()` : (1) API trouve-mot avec cache 1 h, (2) fallback sur
+  la table `words` (mots déjà récupérés), (3) fallback final sur n'importe
+  quel mot en base, (4) exception si la base est vide. Le seeder local
+  (~200 mots répartis par longueur) reste utile comme filet de sécurité
+  hors-ligne : il s'exécute automatiquement via `migrate --seed`.

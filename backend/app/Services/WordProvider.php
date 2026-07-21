@@ -9,8 +9,8 @@ use RuntimeException;
 
 class WordProvider
 {
-    private const SOURCE_URL = 'https://raw.githubusercontent.com/Taknok/Liste-de-mots-francais/main/liste_francais.txt';
-    private const CACHE_KEY = 'taknok_french_word_list';
+    private const API_BASE = 'https://trouve-mot.fr/api';
+
     private const CACHE_TTL = 3600;
 
     public const DIFFICULTY_LENGTHS = [
@@ -26,14 +26,14 @@ class WordProvider
             throw new \InvalidArgumentException("Unknown difficulty: {$difficulty}");
         }
 
-        $existing = Word::where('length', $length)->inRandomOrder()->first();
-        if ($existing) {
-            return $existing;
-        }
-
         $apiWord = self::fetchFromApi($length);
         if ($apiWord !== null) {
             return self::saveWord($apiWord, $difficulty);
+        }
+
+        $existing = Word::where('length', $length)->inRandomOrder()->first();
+        if ($existing) {
+            return $existing;
         }
 
         $fallback = Word::inRandomOrder()->first();
@@ -48,41 +48,36 @@ class WordProvider
 
     private static function fetchFromApi(int $length): ?string
     {
-        $list = Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
-            $response = Http::timeout(10)->get(self::SOURCE_URL);
+        $cacheKey = "trouve_mot_words_{$length}_50";
+
+        $words = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($length) {
+            $response = Http::timeout(10)->get(self::API_BASE."/size/{$length}/50");
             if (! $response->ok()) {
-                throw new \RuntimeException("HTTP {$response->status()} from Taknok");
+                return [];
             }
-            return $response->body();
+            $data = $response->json();
+            return is_array($data) ? array_map('strval', $data) : [];
         });
 
-        $candidates = self::filterByLength($list, $length);
-        if (empty($candidates)) {
+        if (empty($words)) {
             return null;
         }
 
-        return $candidates[array_rand($candidates)];
-    }
-
-    private static function filterByLength(string $list, int $length): array
-    {
-        $pattern = '/^[a-zàâçéèêëîïôûùüÿñæœ-]+$/i';
-
-        $lines = preg_split('/\R/', $list) ?: [];
-        $matches = [];
-
-        foreach ($lines as $line) {
-            $word = trim($line);
-            if ($word === '' || mb_strlen($word) !== $length) {
-                continue;
-            }
-            if (! preg_match($pattern, $word)) {
-                continue;
-            }
-            $matches[] = $word;
+        $clean = array_values(array_filter($words, fn ($w) => self::isValidWord($w)));
+        if (empty($clean)) {
+            return null;
         }
 
-        return $matches;
+        return $clean[array_rand($clean)];
+    }
+
+    private static function isValidWord(string $word): bool
+    {
+        $word = trim($word);
+        if ($word === '' || mb_strlen($word) < 3) {
+            return false;
+        }
+        return (bool) preg_match('/^[A-ZÀÂÇÉÈÊËÎÏÔÛÙÜŸÑÆŒ\-]+$/i', $word);
     }
 
     private static function saveWord(string $word, string $difficulty): Word
