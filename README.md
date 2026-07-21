@@ -17,7 +17,7 @@ La première lettre du mot est révélée au début de la partie.
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind 4 |
 | Backend  | Laravel 13, PHP 8.3, Sanctum (mode SPA)           |
 | API docs | darkaonline/l5-swagger, OpenAPI 3.0              |
-| BDD      | MySQL (MAMP)                                      |
+| BDD      | MySQL 8 (Docker) ou MySQL/MAMP (manuel)           |
 
 L'authentification passe par des cookies de session HttpOnly + un token CSRF,
 via **Laravel Sanctum en mode SPA** (voir `documents/DESIGN.md` pour le détail).
@@ -32,12 +32,59 @@ via **Laravel Sanctum en mode SPA** (voir `documents/DESIGN.md` pour le détail)
 
 ## Prérequis
 
-- PHP 8.3+, Composer
-- Node.js 20+, npm
-- MySQL (MAMP fait l'affaire)
-- Deux terminaux ouverts
+Deux workflows sont supportés, choisir celui qui convient :
 
-## Installation
+- **Docker** (recommandé) : Docker Desktop + Docker Compose v2. Aucun autre
+  outil à installer.
+- **Manuel** : PHP 8.3+, Composer, Node.js 20+, npm, MySQL (MAMP fait l'affaire).
+
+## Quick start (Docker)
+
+```bash
+# Depuis la racine du repo
+docker compose up --build
+```
+
+Au premier lancement :
+1. Construction des images backend (PHP 8.3) et frontend (Node 20).
+2. Démarrage de MySQL 8.0 (port hôte 3307, conteneur 3306).
+3. Bootstrap du backend : `composer install`, `key:generate`,
+   `migrate --seed`, lancement de `artisan serve` sur :3000.
+4. Bootstrap du frontend : `npm ci`, lancement de `next dev` sur :3001.
+
+Une fois prêt (quelques dizaines de secondes la première fois, quelques
+secondes ensuite grâce aux volumes nommés) :
+
+| Service        | URL                              |
+|----------------|----------------------------------|
+| Frontend (SPA) | http://localhost:3001            |
+| Backend (API)  | http://localhost:3000            |
+| Swagger UI     | http://localhost:3000/swagger    |
+| MySQL          | `localhost:3307` (user `motus` / pwd `motus` / db `motus`) |
+
+Commandes utiles :
+
+```bash
+docker compose up                   # démarrer (sans rebuild)
+docker compose down                 # arrêter
+docker compose down -v              # tout supprimer (DB incluse)
+docker compose logs -f backend      # suivre les logs du backend
+docker compose exec backend bash    # shell dans le conteneur backend
+docker compose exec backend php artisan test
+docker compose exec backend php artisan l5-swagger:generate
+docker compose exec frontend sh     # shell dans le conteneur frontend
+```
+
+La base de données et les dépendances (`vendor/`, `node_modules/`) sont
+stockées dans des **volumes nommés** et survivent à `docker compose down`.
+Les sources sont bind-montées : les modifications PHP/TS sont
+répercutées immédiatement (hot reload pour le frontend, auto-restart
+pour le backend via `artisan serve`).
+
+Le port MySQL hôte est `3307` (et non `3306`) pour ne pas entrer en conflit
+avec un éventuel MySQL MAMP/MySQL Workbench déjà installé.
+
+## Installation (manuel)
 
 ### 1. Base de données
 
@@ -99,8 +146,8 @@ Motus/
 │   ├── app/
 │   │   ├── Http/Controllers
 │   │   ├── Models
-│   │   ├── OpenApi/         Fichier d'annotations OpenAPI partagé
-│   │   ├── Providers/       ServiceProvider qui injecte le bon analyseur
+│   │   ├── OpenApi/         Classe regroupant les schémas OpenAPI partagés
+│   │   ├── Providers/       ServiceProviders Laravel
 │   │   └── Services
 │   ├── database/migrations
 │   ├── database/seeders
@@ -135,9 +182,10 @@ requête de modification. Swagger UI est disponible sur `/swagger` (sans préfix
 | POST    | `/api/games/{id}/attempts`      | ✓    | Soumettre un essai                |
 | GET     | `/api/leaderboard`              | ✓    | Classement                        |
 
-La spec OpenAPI est générée depuis les docblocks `@OA\...` des contrôleurs
-(`app/Http/Controllers/*.php`) et le bloc d'information partagé
-(`app/OpenApi/OpenApiSpec.php`). Pour la régénérer :
+La spec OpenAPI est générée depuis les attributs `#[OA\...]` (PHP 8)
+placés sur les contrôleurs (`app/Http/Controllers/*.php`) et sur la
+classe `app/OpenApi/OpenApiSpec.php` qui regroupe les schémas
+réutilisables. Pour la régénérer :
 
 ```bash
 cd backend
@@ -170,4 +218,4 @@ Voir `documents/DESIGN.md` pour le détail sur :
 - l'algorithme de scoring en deux passes (gestion des doublons)
 - la requête d'agrégation du classement
 - la provenance des mots (seeder + API Taknok en secours)
-- la doc OpenAPI (annotations docblock + analyseur custom)
+- la doc OpenAPI (attributs PHP 8 natifs via darkaonline/l5-swagger)

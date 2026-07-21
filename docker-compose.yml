@@ -1,0 +1,85 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: motus-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-motus}
+      MYSQL_USER: ${MYSQL_USER:-motus}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-motus}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - motus-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: motus-backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${MYSQL_DATABASE:-motus}
+      DB_USERNAME: ${MYSQL_USER:-motus}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-motus}
+      APP_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:3001
+      SANCTUM_STATEFUL_DOMAINS: localhost:3001,127.0.0.1:3001
+      SESSION_DOMAIN: localhost
+      L5_SWAGGER_GENERATE_ALWAYS: "true"
+      L5_FORMAT_TO_USE_FOR_DOCS: json
+      LOG_CHANNEL: stack
+      LOG_STACK: single
+    volumes:
+      - ./backend:/var/www/html
+      - backend_vendor:/var/www/html/vendor
+      - backend_storage:/var/www/html/storage
+    ports:
+      - "3000:3000"
+    networks:
+      - motus-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: motus-frontend
+    restart: unless-stopped
+    working_dir: /app
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3000
+      WATCHPACK_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "3001:3001"
+    networks:
+      - motus-net
+
+volumes:
+  mysql_data:
+  backend_vendor:
+  backend_storage:
+  frontend_node_modules:
+
+networks:
+  motus-net:
+    driver: bridge
