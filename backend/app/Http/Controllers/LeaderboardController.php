@@ -6,11 +6,23 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use OpenApi\Attributes as OA;
 
 class LeaderboardController extends Controller
 {
     private const TOP_LIMIT = 10;
 
+    #[OA\Get(
+        path: '/api/leaderboard',
+        tags: ['Leaderboard'],
+        summary: 'Récupérer le classement des joueurs',
+        description: "Renvoie les 10 meilleurs joueurs (par score total) plus l'entrée de l'utilisateur courant s'il n'est pas dans le top.",
+        security: [['sanctum' => []]],
+        responses: [
+            new OA\Response(response: 200, description: 'Classement', content: new OA\JsonContent(ref: '#/components/schemas/Leaderboard')),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+        ],
+    )]
     public function index(Request $request): JsonResponse
     {
         $meId = $request->user()->id;

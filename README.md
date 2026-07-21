@@ -16,10 +16,19 @@ La première lettre du mot est révélée au début de la partie.
 |----------|---------------------------------------------------|
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind 4 |
 | Backend  | Laravel 13, PHP 8.3, Sanctum (mode SPA)           |
+| API docs | darkaonline/l5-swagger, OpenAPI 3.0              |
 | BDD      | MySQL (MAMP)                                      |
 
 L'authentification passe par des cookies de session HttpOnly + un token CSRF,
 via **Laravel Sanctum en mode SPA** (voir `documents/DESIGN.md` pour le détail).
+
+## Ports (en local)
+
+| Service        | URL                       |
+|----------------|---------------------------|
+| Backend (API)  | `http://localhost:3000`   |
+| Frontend (SPA) | `http://localhost:3001`   |
+| Swagger UI     | `http://localhost:3000/swagger` |
 
 ## Prérequis
 
@@ -58,7 +67,7 @@ cp .env.local.example .env.local   # si le fichier n'existe pas
 Le `.env.local` doit contenir l'URL du backend :
 
 ```
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_API_BASE_URL=http://localhost:3000
 ```
 
 ## Lancer le projet
@@ -66,29 +75,33 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 Dans deux terminaux séparés :
 
 ```bash
-# terminal 1 — backend
+# terminal 1 — backend (inclut Swagger sur /swagger)
 cd backend
 php artisan serve
-# → http://localhost:8000
+# → http://localhost:3000
+# → http://localhost:3000/swagger  (documentation OpenAPI interactive)
 ```
 
 ```bash
 # terminal 2 — frontend
 cd frontend
 npm run dev
-# → http://localhost:3000
+# → http://localhost:3001
 ```
 
-Ouvrir `http://localhost:3000` dans le navigateur, créer un compte, et jouer.
+Ouvrir `http://localhost:3001` dans le navigateur, créer un compte, et jouer.
 
 ## Structure du projet
 
 ```
 Motus/
 ├── backend/                 Laravel 13 (API uniquement)
-│   ├── app/Http/Controllers
-│   ├── app/Models
-│   ├── app/Services
+│   ├── app/
+│   │   ├── Http/Controllers
+│   │   ├── Models
+│   │   ├── OpenApi/         Fichier d'annotations OpenAPI partagé
+│   │   ├── Providers/       ServiceProvider qui injecte le bon analyseur
+│   │   └── Services
 │   ├── database/migrations
 │   ├── database/seeders
 │   └── routes/api.php
@@ -107,7 +120,8 @@ Motus/
 
 Toutes les routes sont sous `/api`. Le seul endpoint hors `/api` est
 `/sanctum/csrf-cookie`, appelé automatiquement par le frontend avant chaque
-requête de modification.
+requête de modification. Swagger UI est disponible sur `/swagger` (sans préfixe
+`/api`).
 
 | Méthode | Chemin                          | Auth | Description                       |
 |---------|---------------------------------|------|-----------------------------------|
@@ -121,10 +135,24 @@ requête de modification.
 | POST    | `/api/games/{id}/attempts`      | ✓    | Soumettre un essai                |
 | GET     | `/api/leaderboard`              | ✓    | Classement                        |
 
+La spec OpenAPI est générée depuis les docblocks `@OA\...` des contrôleurs
+(`app/Http/Controllers/*.php`) et le bloc d'information partagé
+(`app/OpenApi/OpenApiSpec.php`). Pour la régénérer :
+
+```bash
+cd backend
+php artisan l5-swagger:generate
+```
+
+Le JSON est écrit dans `storage/api-docs/api-docs.json`. Avec
+`L5_SWAGGER_GENERATE_ALWAYS=true` dans `.env` (présent par défaut dans
+`.env.example`), la spec est aussi régénérée à chaque requête vers `/swagger`,
+ce qui évite d'avoir à relancer la commande après un changement.
+
 ## Tests
 
 ```bash
-# backend
+# backend (Pest)
 cd backend
 php artisan test
 
@@ -142,3 +170,4 @@ Voir `documents/DESIGN.md` pour le détail sur :
 - l'algorithme de scoring en deux passes (gestion des doublons)
 - la requête d'agrégation du classement
 - la provenance des mots (seeder + API Taknok en secours)
+- la doc OpenAPI (annotations docblock + analyseur custom)

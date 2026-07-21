@@ -1,0 +1,693 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Motus API",
+        "description": "API REST pour le jeu de devinettes de mots Motus. Authentification par session cookie (Sanctum SPA).",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:3000",
+            "description": "Serveur local de développement"
+        }
+    ],
+    "paths": {
+        "/api/games/{game}/attempts": {
+            "post": {
+                "tags": [
+                    "Attempts"
+                ],
+                "summary": "Soumettre un essai sur une partie",
+                "description": "Valide le mot (longueur exacte, lettres autorisées), calcule le scoring par lettre, et met à jour la partie. Renvoie l'essai créé et la partie rafraîchie (le mot cible n'est révélé qu'une fois la partie terminée).",
+                "operationId": "fbc80c44f2cbc8ee74591118abc8a60e",
+                "parameters": [
+                    {
+                        "name": "game",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "word"
+                                ],
+                                "properties": {
+                                    "word": {
+                                        "description": "Mot proposé. Doit avoir la même longueur que le mot cible et ne contenir que des lettres, traits d'union et apostrophes.",
+                                        "type": "string",
+                                        "example": "MAISON"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Essai enregistré",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AttemptSubmission"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "La partie appartient à un autre utilisateur ou n'est plus en cours"
+                    },
+                    "422": {
+                        "description": "Mot invalide (mauvaise longueur ou caractères non autorisés)"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Créer un compte et démarrer une session",
+                "operationId": "8a56853624e025573120a09a4c75d468",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Alice"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "alice@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "secret123",
+                                        "minLength": 8
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "secret123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Compte créé, session ouverte",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erreur de validation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Se connecter et démarrer une session",
+                "operationId": "a3b306d14572d1f4bd6c064b3233e7b8",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "alice@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "secret123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Session ouverte",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Identifiants incorrects"
+                    }
+                }
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Invalider la session courante",
+                "operationId": "fe8f3429cd6979b3b4517e186505f9f9",
+                "responses": {
+                    "204": {
+                        "description": "Session invalidée"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/user": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Récupérer l'utilisateur courant",
+                "operationId": "e5478e84ace512f8d9653dd7e920ea2a",
+                "responses": {
+                    "200": {
+                        "description": "Utilisateur courant",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/games": {
+            "get": {
+                "tags": [
+                    "Games"
+                ],
+                "summary": "Lister les parties de l'utilisateur courant",
+                "operationId": "93736f40a135111a310e4b25ad61f30b",
+                "responses": {
+                    "200": {
+                        "description": "Liste paginée des parties",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedGames"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Games"
+                ],
+                "summary": "Démarrer une nouvelle partie",
+                "operationId": "b8b9557618eb0f7b3650bdd4ab3a6487",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "difficulty"
+                                ],
+                                "properties": {
+                                    "difficulty": {
+                                        "type": "string",
+                                        "example": "easy",
+                                        "enum": [
+                                            "easy",
+                                            "medium",
+                                            "hard"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Partie créée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Game"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Difficulté invalide"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/games/{game}": {
+            "get": {
+                "tags": [
+                    "Games"
+                ],
+                "summary": "Détail d'une partie",
+                "operationId": "18467eed630a90558e542ccea443776a",
+                "parameters": [
+                    {
+                        "name": "game",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Partie",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Game"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Cette partie appartient à un autre utilisateur"
+                    },
+                    "404": {
+                        "description": "Partie introuvable"
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/leaderboard": {
+            "get": {
+                "tags": [
+                    "Leaderboard"
+                ],
+                "summary": "Récupérer le classement des joueurs",
+                "description": "Renvoie les 10 meilleurs joueurs (par score total) plus l'entrée de l'utilisateur courant s'il n'est pas dans le top.",
+                "operationId": "e2e02bc8d73f7e1a8dfceb1c40e0f3bd",
+                "responses": {
+                    "200": {
+                        "description": "Classement",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Leaderboard"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "User": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Alice"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "alice@example.com"
+                    },
+                    "email_verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Attempt": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 42
+                    },
+                    "attempt_number": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "attempted_word": {
+                        "type": "string",
+                        "example": "MAISON"
+                    },
+                    "result": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "correct",
+                                "present",
+                                "absent"
+                            ]
+                        }
+                    },
+                    "is_correct": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Game": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 7
+                    },
+                    "difficulty": {
+                        "type": "string",
+                        "example": "easy",
+                        "nullable": true,
+                        "enum": [
+                            "easy",
+                            "medium",
+                            "hard"
+                        ]
+                    },
+                    "length": {
+                        "type": "integer",
+                        "example": 5,
+                        "nullable": true
+                    },
+                    "first_letter": {
+                        "type": "string",
+                        "example": "M",
+                        "nullable": true
+                    },
+                    "attempts_count": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "max_attempts": {
+                        "type": "integer",
+                        "example": 6
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "in_progress",
+                        "enum": [
+                            "in_progress",
+                            "won",
+                            "lost"
+                        ]
+                    },
+                    "score": {
+                        "type": "integer",
+                        "example": 0
+                    },
+                    "completed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "attempts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Attempt"
+                        }
+                    },
+                    "word": {
+                        "description": "Le mot cible. Null tant que la partie n'est pas terminée, révélé quand la partie est gagnée ou perdue.",
+                        "type": "string",
+                        "example": null,
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "PaginatedGames": {
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Game"
+                        }
+                    },
+                    "meta": {
+                        "properties": {
+                            "current_page": {
+                                "type": "integer",
+                                "example": 1
+                            },
+                            "last_page": {
+                                "type": "integer",
+                                "example": 3
+                            },
+                            "per_page": {
+                                "type": "integer",
+                                "example": 20
+                            },
+                            "total": {
+                                "type": "integer",
+                                "example": 42
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "LeaderboardEntry": {
+                "properties": {
+                    "rank": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "user": {
+                        "properties": {
+                            "id": {
+                                "type": "integer"
+                            },
+                            "name": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "total_score": {
+                        "type": "integer",
+                        "example": 4200
+                    },
+                    "games_played": {
+                        "type": "integer",
+                        "example": 12
+                    },
+                    "games_won": {
+                        "type": "integer",
+                        "example": 8
+                    },
+                    "best_score": {
+                        "type": "integer",
+                        "example": 900
+                    }
+                },
+                "type": "object"
+            },
+            "Leaderboard": {
+                "properties": {
+                    "top": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LeaderboardEntry"
+                        }
+                    },
+                    "me": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/LeaderboardEntry"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "in_top": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "AttemptSubmission": {
+                "properties": {
+                    "attempt": {
+                        "$ref": "#/components/schemas/Attempt"
+                    },
+                    "game": {
+                        "$ref": "#/components/schemas/Game"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "sanctum": {
+                "type": "apiKey",
+                "name": "X-XSRF-TOKEN",
+                "in": "header"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Attempts",
+            "description": "Attempts"
+        },
+        {
+            "name": "Auth",
+            "description": "Auth"
+        },
+        {
+            "name": "Games",
+            "description": "Games"
+        },
+        {
+            "name": "Leaderboard",
+            "description": "Leaderboard"
+        }
+    ]
+}

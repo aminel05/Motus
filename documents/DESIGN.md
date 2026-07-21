@@ -111,3 +111,48 @@ Au démarrage d'une partie, le backend ne renvoie pas le mot : seulement
 les métadonnées (difficulté, longueur, première lettre). Le mot complet
 n'est inclus dans la réponse qu'une fois la partie terminée (`won` ou `lost`).
 C'est le rôle de `Game::toApiArray()` qui teste `$this->isFinished()`.
+
+## 7. Documentation OpenAPI (Swagger)
+
+L'API est documentée via `darkaonline/l5-swagger` v11. L'UI Swagger est
+servie par le backend sur `http://localhost:3000/swagger` (donc à la même
+origine que l'API — pas de problème de CORS pour le navigateur de la personne
+qui corrige).
+
+**Annotations.** Les endpoints sont décrits en PHP avec des docblocks
+`@OA\Get`, `@OA\Post`, etc. directement au-dessus de chaque méthode de
+contrôleur. Les schémas partagés (`User`, `Game`, `Attempt`,
+`PaginatedGames`, `LeaderboardEntry`, `Leaderboard`, `AttemptSubmission`)
+sont définis une seule fois dans `app/OpenApi/OpenApiSpec.php` et référencés
+depuis les contrôleurs via `@OA\JsonContent(ref="#/components/schemas/…")`.
+
+**Analyseur custom.** l5-swagger v11 utilise par défaut un analyseur qui ne
+sait lire que les attributs PHP 8 (`#[\OpenApi\Attributes\...]`), pas les
+docblocks `@OA\...`. Comme tout le projet utilise la syntaxe docblock, j'ai
+ajouté un `App\OpenApi\DocBlockAnalyser` qui combine
+`DocBlockAnnotationFactory` (lit les docblocks) et
+`AttributeAnnotationFactory` (lit les attributs). Il est injecté via
+`App\Providers\SwaggerServiceProvider::boot()` qui remplace la valeur de
+`scanOptions.analyser` dans la config l5-swagger *après* que le service
+provider par défaut l'ait posée. Sans cette étape, la commande
+`php artisan l5-swagger:generate` produit un JSON vide.
+
+**Dépendance.** L'analyseur docblock a besoin de `doctrine/annotations` au
+runtime (le scanner l'utilise via `Doctrine\Common\Annotations\DocParser`).
+Cette dépendance est marquée *abandoned* par Composer mais elle reste
+nécessaire tant qu'on n'a pas converti toutes les annotations en attributs
+PHP 8 — un travail de migration que je n'ai pas fait pour ne pas gonfler le
+diff.
+
+**Régénération.** `L5_SWAGGER_GENERATE_ALWAYS=true` (dans `.env.example`)
+fait que la spec est régénérée à chaque requête vers `/swagger`, donc pas
+besoin de relancer la commande manuellement en dev.
+
+## 8. Ports
+
+| Service | Port | Pourquoi |
+|---------|------|----------|
+| Backend (API + Swagger) | 3000 | Le sujet demande « Swagger sur `http://localhost:3000/swagger` » — le plus simple est que l'API tienne ce port et serve aussi l'UI Swagger à la même origine |
+| Frontend (SPA)          | 3001 | Évite le conflit avec le backend |
+
+L'ancien port 8000 du backend n'est plus utilisé.

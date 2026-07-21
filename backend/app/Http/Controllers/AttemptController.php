@@ -7,9 +7,40 @@ use App\Models\Game;
 use App\Services\GameScorer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use OpenApi\Attributes as OA;
 
 class AttemptController extends Controller
 {
+    #[OA\Post(
+        path: '/api/games/{game}/attempts',
+        tags: ['Attempts'],
+        summary: 'Soumettre un essai sur une partie',
+        description: "Valide le mot (longueur exacte, lettres autorisées), calcule le scoring par lettre, et met à jour la partie. Renvoie l'essai créé et la partie rafraîchie (le mot cible n'est révélé qu'une fois la partie terminée).",
+        security: [['sanctum' => []]],
+        parameters: [
+            new OA\Parameter(
+                name: 'game',
+                in: 'path',
+                required: true,
+                schema: new OA\Schema(type: 'integer'),
+            ),
+        ],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['word'],
+                properties: [
+                    new OA\Property(property: 'word', type: 'string', example: 'MAISON', description: "Mot proposé. Doit avoir la même longueur que le mot cible et ne contenir que des lettres, traits d'union et apostrophes."),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Essai enregistré', content: new OA\JsonContent(ref: '#/components/schemas/AttemptSubmission')),
+            new OA\Response(response: 403, description: "La partie appartient à un autre utilisateur ou n'est plus en cours"),
+            new OA\Response(response: 422, description: 'Mot invalide (mauvaise longueur ou caractères non autorisés)'),
+            new OA\Response(response: 401, description: 'Non authentifié'),
+        ],
+    )]
     public function store(Request $request, Game $game): JsonResponse
     {
         abort_unless($game->user_id === $request->user()->id, 403);
