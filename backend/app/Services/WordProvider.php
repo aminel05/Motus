@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Word;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class WordProvider
@@ -51,12 +52,40 @@ class WordProvider
         $cacheKey = "trouve_mot_words_{$length}_50";
 
         $words = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($length) {
-            $response = Http::timeout(10)->get(self::API_BASE."/size/{$length}/50");
+            // SSL verification is disabled because the trouve-mot.fr public
+            // word list is fetched over HTTPS, and MAMP's bundled PHP 8.3 on
+            // the host (and some minimal Docker base images) ship without a
+            // usable CA bundle, raising "cURL error 60: SSL certificate
+            // problem". This endpoint serves only an open word list (no
+            // auth, no user data), so skipping verification is acceptable.
+            // In a production environment that handles authenticated calls
+            // or user data, point curl.cainfo / openssl.cafile at a real
+            // cacert.pem instead of using this shortcut.
+            try {
+                $response = Http::timeout(10)
+                    ->withOptions(['verify' => false])
+                    ->get(self::API_BASE."/size/{$length}/50");
+            } catch (\Throwable $e) {
+                Log::error('WordProvider: API fetch failed, falling back to DB', [
+                    'url' => self::API_BASE."/size/{$length}/50",
+                    'length' => $length,
+                    'exception' => $e::class,
+                    'message' => $e->getMessage(),
+                ]);
+                return [];
+            }
             if (! $response->ok()) {
                 return [];
             }
             $data = $response->json();
-            return is_array($data) ? array_map('strval', $data) : [];
+            if (! is_array($data)) {
+                return [];
+            }
+            $words = array_map(
+                fn ($entry) => is_array($entry) ? (string) ($entry['name'] ?? '') : (string) $entry,
+                $data,
+            );
+            return array_values(array_filter($words, fn ($w) => $w !== ''));
         });
 
         if (empty($words)) {

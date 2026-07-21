@@ -163,7 +163,6 @@ Motus/
 │   └── ...
 │
 └── documents/
-    ├── DESIGN.md            choix techniques détaillés
     └── DATABASE_MIGRATIONS.md
 ```
 
@@ -215,17 +214,149 @@ npm run lint
 
 ## Choix techniques
 
-Voir `documents/DESIGN.md` pour le détail sur :
+### Authentification : Sanctum en mode SPA
 
-- le choix de Sanctum en mode SPA plutôt que des bearer tokens
-- le modèle de données (cascades, contraintes d'unicité, index)
-- l'algorithme de scoring en deux passes (gestion des doublons)
-- la requête d'agrégation du classement
-- la doc OpenAPI (attributs PHP 8 natifs via darkaonline/l5-swagger)
-- la source des mots : l'API REST publique [trouve-mot.fr](https://trouve-mot.fr)
-  (`/api/size/{length}/50`, ~3 575 mots français). Ordre de résolution dans
-  `WordProvider::pick()` : (1) API trouve-mot avec cache 1 h, (2) fallback sur
-  la table `words` (mots déjà récupérés), (3) fallback final sur n'importe
-  quel mot en base, (4) exception si la base est vide. Le seeder local
-  (~200 mots répartis par longueur) reste utile comme filet de sécurité
-  hors-ligne : il s'exécute automatiquement via `migrate --seed`.
+Le frontend tourne sur `localhost:3001` et l'API sur `localhost:3000`. Ce
+sont deux origines différentes pour le navigateur, donc :
+
+- Un **bearer token** stocké côté front serait exposé au XSS.
+- Une **session cookie** envoyée par le navigateur sur chaque requête reste
+  inaccessible à JavaScript si on la marque `HttpOnly`.
+
+J'ai retenu **Laravel Sanctum en mode SPA** (aussi appelé *first-party
+SPA authentication*) : cookie de session `HttpOnly` + token CSRF dans un
+second cookie lisible par JS (`XSRF-TOKEN`). Axios lit ce cookie et
+l'envoie dans l'en-tête `X-XSRF-TOKEN` à chaque requête de modification.
+Laravel valide le token avant d'exécuter la requête.
+
+Côté backend (`bootstrap/app.php`) : `$middleware->statefulApi()`. Côté
+frontend (`lib/api.ts`) : `withCredentials: true, withXSRFToken: true`.
+
+### Modèle de données
+
+```
+users ──< games >── words
+            │
+            └──< attempts
+```
+
+Quelques contraintes explicites dans les migrations :
+
+- `games.user_id` **cascade on delete** : supprimer un utilisateur efface
+  ses parties. Logique : les parties n'ont pas de sens sans leur propriétaire.
+- `games.word_id` **restrict on delete** : on n'efface jamais un mot pendant
+  qu'une partie le référence. Un mot reste valide même après la fin d'une
+  partie, ce qui permet d'auditer le mot qui était proposé.
+- `attempts.(game_id, attempt_number)` **unique** : garantit qu'on ne peut
+  pas créer deux essais avec le même numéro pour la même partie (race
+  condition en cas de double-clic).
+- `games.(user_id, status, score)` **indexé** : la page d'historique trie
+  par utilisateur + statut + score.
+- `attempts.result` stocké en **JSON** plutôt qu'en table normalisée : une
+  ligne d'essai = un tableau de statuts par position. Le volume reste petit
+  (≤ 10 statuts par essai), donc pas la peine de normaliser.
+
+### Algorithme de scoring
+
+L'algo est dans `app/Services/GameScorer.php`. Il tourne en **deux passes**
+pour gérer correctement les lettres en doublon :
+
+1. **Première passe** : on compare position par position. Si la lettre
+   devinée correspond à la lettre cible à la même position → `correct`.
+   Sinon, on ajoute la lettre cible à un compteur des lettres restantes
+   (« pool »).
+2. **Deuxième passe** : pour les positions qui ne sont pas `correct`, on
+   pioche dans le pool. Si la lettre devinée est dans le pool → `present`,
+   et on décrémente le pool. Sinon → `absent`.
+
+Sans la deuxième passe, une devinette comme `AABBA` contre le mot `ABBAZ`
+attribuerait à tort un `correct` au deuxième `A` (il n'y a que deux `A`
+dans le mot, et le premier est déjà à la bonne place).
+
+### Classement
+
+Une seule requête SQL dans `LeaderboardController::index` :
+
+```sql
+SELECT user_id,
+       SUM(score)              AS total_score,
+       COUNT(*)                AS games_played,
+       SUM(status = 'won')     AS games_won,
+       MAX(score)              AS best_score
+FROM   games
+GROUP BY user_id
+ORDER BY total_score DESC, best_score DESC
+```
+
+Le contrôleur ajoute le rang (`1, 2, 3, …`) en PHP après la requête, joint
+les `User` correspondants en un seul `whereIn`, et découpe le tableau en
+« top 10 » + entrée de l'utilisateur courant s'il n'est pas dans le top.
+La requête est en `DB::table(...)` plutôt qu'en scope Eloquent parce
+qu'elle agrège sur l'ensemble de la table : c'est plus lisible en query
+builder, et il n'y a pas de N+1 à craindre.
+
+### Provenance des mots
+
+La source principale est l'API REST publique
+[trouve-mot.fr](https://trouve-mot.fr), qui expose un endpoint
+`GET /api/size/{length}/{count}` renvoyant un JSON de mots français de
+la longueur demandée (3 575 mots, 27 catégories thématiques : animaux,
+aliments, école, etc.).
+
+`WordProvider::pick($difficulty)` résout un mot en 4 étapes :
+
+1. **API trouve-mot** — un appel `Http::get("/api/size/{$length}/50")`,
+   caché pendant 1 heure via `Cache::remember()`. C'est le chemin normal.
+2. **Table `words` (mots déjà récupérés)** — si l'API est en carafe, on
+   pioche parmi les mots qu'on a déjà récupérés (incluant les mots de
+   l'API sauvegardés à l'étape 1).
+3. **N'importe quel mot en base** — dernier filet.
+4. **`RuntimeException`** — base vide, on demande à l'utilisateur de
+   lancer le seeder.
+
+Le `WordSeeder` (≈ 200 mots, exécuté automatiquement par
+`migrate --seed`) sert de **filet de sécurité hors-ligne** : si l'API
+est injoignable au démarrage, le jeu reste jouable. Les mots puisés via
+l'API sont aussi persistés en base via `Word::firstOrCreate(...)`, ce
+qui élargit progressivement le pool de secours.
+
+> **Note SSL (dev only)** : l'appel à l'API est fait avec
+> `withOptions(['verify' => false])` parce que la version de PHP livrée
+> avec MAMP (8.3.1) n'a pas de `cacert.pem` configuré (`curl.cainfo` /
+> `openssl.cafile` vides), ce qui déclenche *« cURL error 60: SSL
+> certificate problem »*. C'est acceptable ici car l'endpoint ne sert
+> qu'une liste de mots publique, sans auth ni donnée utilisateur. En
+> production (ou pour toute API authentifiée), il faut pointer
+> `curl.cainfo` et `openssl.cafile` du `php.ini` vers un vrai
+> `cacert.pem` (par exemple celui déjà présent dans
+> `C:\MAMP\bin\php\php8.3.1\cacert.pem`) et retirer le `verify => false`.
+
+### Documentation OpenAPI
+
+L'API est documentée via `darkaonline/l5-swagger` v11. L'UI Swagger est
+servie par le backend sur `http://localhost:3000/swagger` (donc à la
+même origine que l'API — pas de problème de CORS pour le navigateur de
+la personne qui corrige).
+
+Les endpoints sont décrits avec des **attributs PHP 8** (`#[OA\Get]`,
+`#[OA\Post]`, …) directement au-dessus de chaque méthode de
+contrôleur. Les schémas partagés (`User`, `Game`, `Attempt`,
+`PaginatedGames`, `LeaderboardEntry`, `Leaderboard`, `AttemptSubmission`)
+sont définis une seule fois dans `app/OpenApi/OpenApiSpec.php` et
+référencés depuis les contrôleurs via
+`new OA\JsonContent(ref: '#/components/schemas/…')`. L5-swagger v11
+sait lire les attributs nativement — **aucune configuration
+supplémentaire n'est nécessaire** (pas d'analyseur custom, pas de
+dépendance `doctrine/annotations`).
+
+Régénération : `L5_SWAGGER_GENERATE_ALWAYS=true` (dans `.env.example`)
+fait que la spec est régénérée à chaque requête vers `/swagger`, donc
+pas besoin de relancer la commande manuellement en dev.
+
+### Ports
+
+| Service                  | Port         | Pourquoi |
+|--------------------------|--------------|----------|
+| Backend (API + Swagger)  | 3000         | Le sujet demande « Swagger sur `http://localhost:3000/swagger` » — l'API tient ce port et sert aussi l'UI Swagger à la même origine |
+| Frontend (SPA)           | 3001         | Évite le conflit avec le backend |
+| MySQL (conteneur → hôte) | 3306 → 3307  | 3307 côté hôte pour ne pas entrer en conflit avec un éventuel MySQL déjà installé (MAMP, etc.) |
