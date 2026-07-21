@@ -166,13 +166,13 @@ export default function GamePage({ params }: { params: Params }) {
   }
 
   return (
-    <main className="max-w-3xl mx-auto w-full p-4 sm:p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
+    <main className="max-w-xl mx-auto w-full min-h-[80vh] p-3 sm:p-6 flex flex-col gap-3 sm:gap-4 overflow-hidden">
+      <div className="flex items-center justify-between shrink-0">
+        <h1 className="text-base sm:text-xl font-semibold">
           Partie #{game.id} ·{" "}
           <span className="capitalize">{game.difficulty ?? "?"}</span>
         </h1>
-        <div className="text-sm text-zinc-600">
+        <div className="text-xs sm:text-sm text-zinc-600">
           {game.attempts_count} / {game.max_attempts} essais
         </div>
       </div>
@@ -181,26 +181,19 @@ export default function GamePage({ params }: { params: Params }) {
         length={length}
         maxAttempts={game.max_attempts}
         attempts={game.attempts}
-        firstLetter={game.first_letter}
+        currentGuess={guess}
       />
 
       {!finished && (
-        <div className="text-center text-sm text-zinc-600">
-          Mot en cours :{" "}
-          <span className="font-mono tracking-widest">
-            {guess.padEnd(length, "·")}
-          </span>
+        <div className="shrink-0">
+          <GameKeyboard
+            onKey={onKey}
+            onEnter={onEnter}
+            onBackspace={onBackspace}
+            disabled={busy}
+            letterStatuses={letterStatuses}
+          />
         </div>
-      )}
-
-      {!finished && (
-        <GameKeyboard
-          onKey={onKey}
-          onEnter={onEnter}
-          onBackspace={onBackspace}
-          disabled={busy}
-          letterStatuses={letterStatuses}
-        />
       )}
 
       {toast && (

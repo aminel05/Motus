@@ -47,6 +47,12 @@ export function AppHeader() {
           Motus
         </Link>
 
+        <div className="max-w-5xl hidden mx-auto px-4 py-2 sm:flex flex-row items-center gap-1">
+          {link("/dashboard", "Tableau de bord")}
+          {link("/game/new", "Nouvelle partie")}
+          {link("/leaderboard", "Classement")}
+        </div>
+
         <div className="flex items-center gap-2">
           <span className="hidden sm:inline text-sm text-zinc-600">
             {user.name}
@@ -75,7 +81,7 @@ export function AppHeader() {
           menuOpen ? "block" : "hidden"
         } border-t border-zinc-200 sm:border-t-0`}
       >
-        <div className="max-w-5xl mx-auto px-4 py-2 flex flex-col sm:flex-row sm:items-center gap-1">
+        <div className="max-w-5xl mx-auto px-4 py-2 flex flex-col sm:hidden gap-1">
           {link("/dashboard", "Tableau de bord")}
           {link("/game/new", "Nouvelle partie")}
           {link("/leaderboard", "Classement")}

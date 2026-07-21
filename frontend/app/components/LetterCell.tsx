@@ -8,7 +8,7 @@ type Props = {
 };
 
 const base =
-  "inline-flex items-center justify-center font-bold uppercase select-none transition-transform";
+  "inline-flex items-center justify-center font-bold uppercase select-none";
 
 const sizes: Record<NonNullable<Props["size"]>, string> = {
   // aspect-square makes the cell fill its grid column equally in both
@@ -32,13 +32,13 @@ export function LetterCell({ letter, status, size = "md", animate }: Props) {
     base,
     sizes[size],
     status ? statusStyles[status] : emptyStyle,
-    animate ? "scale-100" : "",
+    animate ? "animate-pop" : "",
     letter ? "" : "text-transparent",
   ].join(" ");
 
   return (
     <div className={className} aria-label={status ?? "empty"}>
-      {letter || "\u00A0"}
+      {letter || " "}
     </div>
   );
 }
