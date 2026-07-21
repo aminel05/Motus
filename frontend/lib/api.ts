@@ -20,3 +20,17 @@ export async function getCsrfCookie(): Promise<void> {
     withCredentials: true,
   });
 }
+
+// Narrow an unknown error (typically from an axios catch) into the JSON
+// body the Laravel API sent. Returns null if the value isn't shaped like
+// an axios error response.
+export type ApiErrorBody = {
+  message?: string;
+  errors?: Record<string, string[]>;
+};
+
+export function readApiError(err: unknown): ApiErrorBody | null {
+  if (!err || typeof err !== "object" || !("response" in err)) return null;
+  const data = (err as { response?: { data?: ApiErrorBody } }).response?.data;
+  return data ?? null;
+}
