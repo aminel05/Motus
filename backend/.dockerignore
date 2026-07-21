@@ -5,6 +5,7 @@ vendor
 .env
 .env.*
 !.env.example
+!.env.docker
 storage/api-docs
 storage/logs/*
 storage/framework/cache/data/*

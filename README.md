@@ -20,7 +20,8 @@ La première lettre du mot est révélée au début de la partie.
 | BDD      | MySQL 8 (Docker) ou MySQL/MAMP (manuel)           |
 
 L'authentification passe par des cookies de session HttpOnly + un token CSRF,
-via **Laravel Sanctum en mode SPA** (voir `documents/DESIGN.md` pour le détail).
+via **Laravel Sanctum en mode SPA** (voir [Choix techniques](#choix-techniques)
+pour le détail).
 
 ## Ports (en local)
 
@@ -61,6 +62,10 @@ secondes ensuite grâce aux volumes nommés) :
 | Backend (API)  | http://localhost:3000            |
 | Swagger UI     | http://localhost:3000/swagger    |
 | MySQL          | `localhost:3307` (user `motus` / pwd `motus` / db `motus`) |
+
+**Note Docker** : le conteneur backend charge sa `.env` depuis l'image
+(`backend/.env.docker`, commité). Le `backend/.env` local n'est jamais
+monté, vous pouvez donc le configurer pour MAMP sans affecter Docker.
 
 Commandes utiles :
 

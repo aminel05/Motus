@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
         libicu-dev \
         libzip-dev \
+        libonig-dev \
         libpng-dev \
         libjpeg-dev \
         libfreetype6-dev \
@@ -24,12 +25,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         intl \
         zip \
         opcache \
-    && pecl clear-cache \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
+
+COPY .env.docker .env
+
+RUN mkdir -p \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/framework/testing \
+        storage/logs \
+        storage/app/public \
+        storage/app/private \
+        bootstrap/cache
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
